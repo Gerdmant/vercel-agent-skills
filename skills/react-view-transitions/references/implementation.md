@@ -6,7 +6,7 @@ Follow these steps in order when adding view transitions to an app. Each step bu
 
 Before writing any code, scan the codebase thoroughly. Search for:
 
-- **Every `<Link>` and `router.push`** — these are your navigation triggers. Open every file that contains one.
+- **Every `<Link>` and `router.push`** — these are your navigation triggers. Open every file that contains one and check whether the destination is prefetched and ready at click time.
 - **Every `<Suspense>` boundary** — each one is a candidate for a reveal animation. Check what its fallback renders.
 - **Every page/route component** — list them all. Each page needs a VT placement decision.
 - **Persistent elements** — headers, navbars, sidebars, sticky controls that stay on screen across navigations. These need `viewTransitionName` isolation.
@@ -16,13 +16,13 @@ Before writing any code, scan the codebase thoroughly. Search for:
 Then classify every navigation and produce a navigation map:
 
 ```
-| Route           | Navigates to         | Direction    | VT pattern            |
-|-----------------|----------------------|--------------|-----------------------|
-| /               | /detail/[id]         | forward      | directional slide     |
-| /detail/[id]    | /                    | back         | directional slide     |
-| /detail/[id]    | /detail/[other]      | sequential   | directional slide (ordered prev/next) or key+share crossfade |
-| /tab/[a]        | /tab/[b]             | lateral      | key+share crossfade   |
-| (Suspense)      | (content loads)      | —            | slide-up reveal       |
+| Route           | Navigates to         | Direction    | Ready at click | VT pattern            |
+|-----------------|----------------------|--------------|----------------|-----------------------|
+| /               | /detail/[id]         | forward      | prefetched     | directional slide     |
+| /detail/[id]    | /                    | back         | prefetched     | directional slide     |
+| /detail/[id]    | /detail/[other]      | sequential   | prefetched     | directional slide (ordered prev/next) or key+share crossfade |
+| /tab/[a]        | /tab/[b]             | lateral      | prefetched     | key+share crossfade   |
+| (Suspense)      | (content loads)      | —            | no             | slide-up reveal       |
 ```
 
 For each shared element (`name` prop), note every navigation where a pair forms and where it doesn't — this determines whether you need `enter`/`exit` as a fallback alongside `share`.
@@ -46,6 +46,8 @@ Then add the [Persistent Element Isolation](css-recipes.md#persistent-element-is
 If a Suspense fallback mirrors a persistent control (e.g., a skeleton search input), give both the real control and the skeleton the same `viewTransitionName` so they morph in place.
 
 ## Step 4: Add Directional Page Transitions
+
+A directional page transition needs the outgoing page and intended destination content in the same navigation commit. Prefetch and cache data-backed destinations before adding the slide. If the destination suspends, the slide may animate to its fallback; animate the later content with a separate Suspense reveal.
 
 For hierarchical navigations identified in Step 1, tag the navigation direction using `addTransitionType` inside `startTransition`:
 
@@ -159,6 +161,7 @@ Walk through every row in the navigation map from Step 1 and confirm:
 - Does the VT mount/unmount on this navigation, or does it stay mounted (same-route)?
 - For named VTs: does a shared pair form? If not, does `enter`/`exit` provide a fallback?
 - Does `default="none"` block an animation you actually want?
+- With a cold client cache, does the intended destination slide, or only its loading fallback?
 - Do persistent elements stay static (not sliding with page content)?
 - Do Suspense reveals animate independently from directional navigations?
 
@@ -174,6 +177,7 @@ If any path produces no animation or competing animations, revisit the relevant 
 - **Writing custom animation CSS** — the recipes in [css-recipes.md](css-recipes.md) handle staggered timing, motion blur on morphs, and reduced motion. Copy them; don't reinvent them.
 - **Missing `default: "none"` in type-keyed objects** — TypeScript requires a `default` key, and without it the fallback is `"auto"` which fires on every transition.
 - **Type maps on Suspense reveals** — Suspense resolves fire as separate transitions with no type. Type-keyed props won't match — use simple string props instead.
+- **Sliding uncached route content** — content behind an unresolved Suspense boundary is not present for the navigation snapshot. Prefetch/cache the destination, or let the route animate to its fallback and give the later content a Suspense reveal.
 - **Raw `viewTransitionName` CSS to trigger animations** — React only calls `document.startViewTransition` when `<ViewTransition>` components are in the tree. A bare `viewTransitionName` style is for isolating elements from a parent's snapshot, not for triggering animations.
 - **`update` trigger for same-route navigations** — nested VTs inside the content steal the mutation from the parent, so `update` never fires on the outer VT. Use `key` + `name` + `share` instead.
 - **Named VT in a reusable component** — if a component with a named VT is rendered in both a modal/popover *and* a page, both mount simultaneously and break the morph. Make the name conditional or move it to the specific consumer.

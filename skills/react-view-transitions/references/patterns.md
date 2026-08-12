@@ -287,6 +287,8 @@ The `types` array (second argument) lets you vary animation based on transition 
 
 **Shared morph silently not firing:** `share` resolved to `none`. Either the VT has `default="none"` with no explicit `share` prop, or `share` is type-keyed and the navigation never adds the type — the link needs `transitionTypes` (or `addTransitionType` in the transition).
 
+**Directional slide reaches a loading state instead of the destination content:** The destination was not ready in the client cache when navigation committed. Prefetch and cache the route content, or animate the fallback and use a separate Suspense reveal when the content resolves.
+
 **Section below a list teleports instead of gliding:** it's outside any activated boundary, its VT has `default="none"` (which disables `update`), or it isn't an immediate sibling of the changing content. See [Layout Displacement Morph](#layout-displacement-morph).
 
 **`router.back()` and browser back/forward skip the directional slide:** traversals carry no transition types, so type-keyed maps resolve to `default` — untyped shared-element morphs still apply. Use `router.push()` for typed animations.
