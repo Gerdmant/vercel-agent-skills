@@ -26,7 +26,7 @@ When following [implementation.md](implementation.md), apply these additions:
 
 **After Step 2:** Enable the experimental flag above.
 
-**Step 4:** Prefetch the route content that should participate in the slide, then use `transitionTypes` on `<Link>` — see [Prefetch Before a Directional Slide](#prefetch-before-a-directional-slide) and [The `transitionTypes` Prop](#the-transitiontypes-prop-on-nextlink).
+**Step 4:** Use `transitionTypes` on `<Link>` — see [The `transitionTypes` Prop](#the-transitiontypes-prop-on-nextlink). If the animation depends on dynamic destination content, also see [When Content Must Be Ready](#when-content-must-be-ready).
 
 **After Step 6:** For same-route dynamic segments (e.g., `/collection/[slug]`), use the `key` + `name` + `share` pattern — see [Same-Route Dynamic Segment Transitions](#same-route-dynamic-segment-transitions).
 
@@ -47,7 +47,7 @@ A bare `<ViewTransition>` in layout works only if pages have **no** VTs of their
 No wrapper component needed, works in Server Components:
 
 ```tsx
-<Link href="/products/1" prefetch={true} transitionTypes={['transition-to-detail']}>
+<Link href="/products/1" transitionTypes={['transition-to-detail']}>
   View Product
 </Link>
 ```
@@ -58,9 +58,11 @@ Replaces the manual pattern of `onNavigate` + `startTransition` + `addTransition
 
 ---
 
-## Prefetch Before a Directional Slide
+## When Content Must Be Ready
 
-A content-to-content slide works only when the destination content is ready in the client Router Cache as the navigation commits. `<Link>` automatically prefetches in production, but the default behavior for dynamic routes may only prefetch a shell or loading boundary. Set `prefetch={true}` to prefetch the full route, and cache the data needed to render the sliding content.
+A page transition can animate whatever Next.js renders during navigation, including a loading fallback. A shared content-to-content morph only works when the incoming content is ready as the navigation commits; content that has not rendered yet cannot form the incoming half of the pair.
+
+When an animation depends on dynamic destination content, use Next.js prefetching and caching to make that content available ahead of time. `<Link>` automatically prefetches in production, but the default behavior for dynamic routes may only prefetch a shell or loading boundary. Set `prefetch={true}` to prefetch the full route, and cache the data needed to render the shared content.
 
 ```tsx
 <Link href={nextHref} prefetch={true} transitionTypes={['nav-forward']}>
@@ -68,7 +70,7 @@ A content-to-content slide works only when the destination content is ready in t
 </Link>
 ```
 
-With Cache Components, put reusable route data in a cached scope such as `use cache` so prefetching can include it. If the destination remains behind an unresolved Suspense boundary, the navigation slide reaches the fallback. The content resolves in a separate Suspense transition without the original `nav-forward` or `nav-back` type, so give that content a separate reveal animation.
+With Cache Components, put reusable route data in a cached scope such as `use cache` so prefetching can include it. If the destination remains behind an unresolved Suspense boundary, the route transition animates the fallback instead. The content resolves in a separate Suspense transition without the original `nav-forward` or `nav-back` type, so give that content its own reveal animation when needed.
 
 Verify directional transitions in a production build with a cold client cache. Development mode does not run automatic `<Link>` prefetching.
 
@@ -82,6 +84,7 @@ See the Next.js [View Transitions guide](https://nextjs.org/docs/app/guides/view
 'use client';
 
 import { useRouter } from 'next/navigation';
+
 function DetailButton({ href }: { href: string }) {
   const router = useRouter();
 
@@ -93,7 +96,7 @@ function DetailButton({ href }: { href: string }) {
 }
 ```
 
-The `transitionTypes` option adds the types inside the router's navigation Transition. This does not make the destination ready by itself: warm the route with a prefetched `<Link>` or another prefetch strategy before relying on a content-to-content slide. Use `startTransition` + `addTransitionType` for non-navigation state updates, or as a fallback on Next.js versions without the router option.
+The `transitionTypes` option adds the types inside the router's navigation Transition. Use `startTransition` + `addTransitionType` for non-navigation state updates, or as a fallback on Next.js versions without the router option.
 
 ---
 

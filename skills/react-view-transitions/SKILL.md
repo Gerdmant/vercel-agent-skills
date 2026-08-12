@@ -183,9 +183,9 @@ export function DirectionalTransition({ children }: { children: React.ReactNode 
 
 Types are available during navigation but **not** during subsequent Suspense reveals (separate transitions, no type). Use type maps for page-level enter/exit; use simple string props for Suspense reveals.
 
-### Route Readiness
+### Shared Element Readiness
 
-A directional route transition can animate the intended destination only when that content is ready as the navigation commits. Prefetch and cache data-backed destinations. If the destination suspends, the route transition may animate to its fallback; the resolved content appears in a later Suspense transition without the original navigation type. Treat these as separate animations: a directional slide for ready route content and a Suspense reveal for content that streams later.
+A shared element transition can pair elements only when both the old and new views are rendered in the same Transition. If incoming content suspends, only its fallback exists for that update; the resolved content appears in a later Suspense transition and can be animated separately.
 
 ---
 
@@ -309,7 +309,7 @@ When a parent VT mounts/unmounts **as one unit** with nested VTs inside it, the 
 
 ## Next.js Integration
 
-For Next.js setup (`experimental.viewTransition` flag, route prefetching, `transitionTypes` on `next/link` and `useRouter`, App Router patterns, Server Components), see [references/nextjs.md](references/nextjs.md).
+For Next.js setup (`experimental.viewTransition` flag, `transitionTypes` on `next/link` and `useRouter`, App Router patterns, Server Components), see [references/nextjs.md](references/nextjs.md).
 
 ---
 
