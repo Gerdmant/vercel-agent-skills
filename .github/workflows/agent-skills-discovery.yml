@@ -1,0 +1,42 @@
+name: Agent Skills Discovery
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'skills/**'
+      - 'scripts/build-discovery-index.mjs'
+      - '.github/workflows/agent-skills-discovery.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'skills/**'
+      - 'scripts/build-discovery-index.mjs'
+      - '.github/workflows/agent-skills-discovery.yml'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - run: node scripts/build-discovery-index.mjs https://example.com/skills
+
+  publish:
+    if: github.event_name == 'push'
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: agent-skills-${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: node scripts/build-discovery-index.mjs "https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}"
+      - run: >-
+          gh release create "$RELEASE_TAG" dist/* --latest
+          --target "$GITHUB_SHA"
+          --title "Agent Skills ${{ github.sha }}"
+          --notes "Automated Agent Skills discovery release for ${{ github.sha }}."
