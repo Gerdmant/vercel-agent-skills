@@ -26,6 +26,9 @@ jobs:
   publish:
     if: github.event_name == 'push'
     needs: validate
+    concurrency:
+      group: agent-skills-discovery-publish
+      cancel-in-progress: true
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -35,8 +38,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: node scripts/build-discovery-index.mjs "https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}"
-      - run: >-
-          gh release create "$RELEASE_TAG" dist/* --latest
-          --target "$GITHUB_SHA"
-          --title "Agent Skills ${{ github.sha }}"
-          --notes "Automated Agent Skills discovery release for ${{ github.sha }}."
+      - run: |
+          gh release view "$RELEASE_TAG" >/dev/null 2>&1 ||
+            gh release create "$RELEASE_TAG" --draft --target "$GITHUB_SHA" \
+              --title "Agent Skills ${{ github.sha }}" \
+              --notes "Automated Agent Skills discovery release for ${{ github.sha }}."
+          gh release upload "$RELEASE_TAG" dist/* --clobber
+          gh release edit "$RELEASE_TAG" --draft=false --latest

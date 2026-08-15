@@ -218,7 +218,7 @@ Help me optimize this Next.js page
 ## Discovery index
 
 Every change to a skill on `main` publishes an immutable GitHub release with
-an Agent Skills discovery index and one archive per skill. Build the same
+an Agent Skills discovery index and one artifact per skill. Build the same
 artifacts locally with:
 
 ```bash

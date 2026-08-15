@@ -4,8 +4,6 @@ import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import {
   mkdirSync,
-  readdirSync,
-  readFileSync,
   rmSync,
   writeFileSync,
 } from 'node:fs';
@@ -30,8 +28,11 @@ if (!baseUrl) {
   );
 }
 
-const readMetadata = (path) => {
-  const source = readFileSync(path, 'utf8');
+const readMetadata = (directory) => {
+  const path = `skills/${directory}/SKILL.md`;
+  const source = execFileSync('git', ['show', `HEAD:${path}`], {
+    encoding: 'utf8',
+  });
   const frontmatter = source.match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1];
   if (!frontmatter) throw new Error(`Missing frontmatter in ${path}`);
 
@@ -53,20 +54,28 @@ const readMetadata = (path) => {
   ) {
     descriptionLines.push(lines[index].trim());
   }
-  const description = inlineDescription
-    ? inlineDescription.startsWith('"')
+  const blockStyle = inlineDescription.match(/^([>|])[-+]?$/)?.[1];
+  const description = blockStyle
+    ? descriptionLines.join(blockStyle === '|' ? '\n' : ' ')
+    : inlineDescription.startsWith('"')
       ? JSON.parse(inlineDescription)
-      : inlineDescription.replaceAll('\\"', '"')
-    : descriptionLines.join(' ');
+      : inlineDescription.startsWith("'") && inlineDescription.endsWith("'")
+        ? inlineDescription.slice(1, -1).replaceAll("''", "'")
+        : inlineDescription || descriptionLines.join(' ');
 
-  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(name) || !description) {
+  if (
+    name.length > 64 ||
+    !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(name) ||
+    !description ||
+    description.length > 1024
+  ) {
     throw new Error(`Invalid name or description in ${path}`);
   }
 
   return { name, description };
 };
 
-const createArchive = (directory, name) => {
+const createArchive = (directory) => {
   const tree = execFileSync(
     'git',
     ['rev-parse', `HEAD:skills/${directory}`],
@@ -77,34 +86,74 @@ const createArchive = (directory, name) => {
     env: archiveEnvironment,
     input: 'Agent Skills archive\n',
   }).trim();
-  const tar = execFileSync('git', [
-    'archive',
-    '--format=tar',
-    `--prefix=${name}/`,
-    commit,
-  ]);
+  const tar = execFileSync('git', ['archive', '--format=tar', commit]);
   return execFileSync('gzip', ['-n', '-9', '-c'], { input: tar });
+};
+
+const createArtifact = (directory) => {
+  const entries = execFileSync(
+    'git',
+    ['ls-tree', '-r', `HEAD:skills/${directory}`],
+    { encoding: 'utf8' },
+  )
+    .trim()
+    .split('\n');
+  if (entries.some((entry) => !/^100(?:644|755) blob /.test(entry))) {
+    throw new Error(`Unsupported archive entry in skills/${directory}`);
+  }
+
+  const files = entries.map((entry) => entry.slice(entry.indexOf('\t') + 1));
+
+  if (files.length === 1 && files[0] === 'SKILL.md') {
+    return {
+      content: execFileSync('git', [
+        'show',
+        `HEAD:skills/${directory}/SKILL.md`,
+      ]),
+      extension: 'md',
+      type: 'skill-md',
+    };
+  }
+
+  return {
+    content: createArchive(directory),
+    extension: 'tar.gz',
+    type: 'archive',
+  };
 };
 
 rmSync(outputDirectory, { force: true, recursive: true });
 mkdirSync(outputDirectory);
 
-const skills = readdirSync('skills', { withFileTypes: true })
-  .filter((entry) => entry.isDirectory())
-  .map(({ name: directory }) => {
-    const metadata = readMetadata(join('skills', directory, 'SKILL.md'));
-    const artifact = createArchive(directory, metadata.name);
-    const filename = `${metadata.name}.tar.gz`;
-    writeFileSync(join(outputDirectory, filename), artifact);
+const directories = execFileSync(
+  'git',
+  ['ls-tree', '-d', '--name-only', 'HEAD:skills'],
+  { encoding: 'utf8' },
+)
+  .trim()
+  .split('\n');
+
+const skills = directories
+  .map((directory) => {
+    const metadata = readMetadata(directory);
+    const artifact = createArtifact(directory);
+    const filename = `${metadata.name}.${artifact.extension}`;
+    writeFileSync(join(outputDirectory, filename), artifact.content);
 
     return {
       ...metadata,
-      type: 'archive',
+      type: artifact.type,
       url: `${baseUrl.replace(/\/$/, '')}/${filename}`,
-      digest: `sha256:${createHash('sha256').update(artifact).digest('hex')}`,
+      digest: `sha256:${createHash('sha256')
+        .update(artifact.content)
+        .digest('hex')}`,
     };
   })
   .sort((a, b) => a.name.localeCompare(b.name));
+
+if (new Set(skills.map(({ name }) => name)).size !== skills.length) {
+  throw new Error('Skill names must be unique');
+}
 
 writeFileSync(
   join(outputDirectory, 'index.json'),
