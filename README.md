@@ -222,6 +222,7 @@ an Agent Skills discovery index and one artifact per skill. Build the same
 artifacts locally with:
 
 ```bash
+npm ci --ignore-scripts
 node scripts/build-discovery-index.mjs https://example.com/skills
 ```
 

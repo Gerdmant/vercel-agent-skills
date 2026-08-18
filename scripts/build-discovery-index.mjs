@@ -8,6 +8,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
+import { parse } from 'yaml';
 
 const schema = 'https://schemas.agentskills.io/discovery/0.2.0/schema.json';
 const baseUrl = process.argv[2];
@@ -36,34 +37,24 @@ const readMetadata = (directory) => {
   const frontmatter = source.match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1];
   if (!frontmatter) throw new Error(`Missing frontmatter in ${path}`);
 
-  const lines = frontmatter.split(/\r?\n/);
-  const name = lines.find((line) => line.startsWith('name:'))?.slice(5).trim();
-  const descriptionLine = lines.findIndex((line) =>
-    line.startsWith('description:'),
-  );
-  if (!name || descriptionLine === -1) {
+  let metadata;
+  try {
+    metadata = parse(frontmatter);
+  } catch (error) {
+    throw new Error(`Invalid frontmatter in ${path}`, { cause: error });
+  }
+
+  if (!metadata || typeof metadata !== 'object') {
+    throw new Error(`Invalid frontmatter in ${path}`);
+  }
+
+  const { name, description } = metadata;
+  if (typeof name !== 'string' || typeof description !== 'string') {
     throw new Error(`Missing name or description in ${path}`);
   }
 
-  const inlineDescription = lines[descriptionLine].slice(12).trim();
-  const descriptionLines = [];
-  for (
-    let index = descriptionLine + 1;
-    index < lines.length && /^\s/.test(lines[index]);
-    index++
-  ) {
-    descriptionLines.push(lines[index].trim());
-  }
-  const blockStyle = inlineDescription.match(/^([>|])[-+]?$/)?.[1];
-  const description = blockStyle
-    ? descriptionLines.join(blockStyle === '|' ? '\n' : ' ')
-    : inlineDescription.startsWith('"')
-      ? JSON.parse(inlineDescription)
-      : inlineDescription.startsWith("'") && inlineDescription.endsWith("'")
-        ? inlineDescription.slice(1, -1).replaceAll("''", "'")
-        : inlineDescription || descriptionLines.join(' ');
-
   if (
+    name.length === 0 ||
     name.length > 64 ||
     !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(name) ||
     !description ||
