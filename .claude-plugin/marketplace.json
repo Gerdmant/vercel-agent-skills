@@ -1,0 +1,17 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "vercel-skills",
+  "description": "Форк vercel-labs/agent-skills (MIT). Из девяти скилов Vercel собран один плагин с двумя, которых нет в остальном стеке: производительность React и Next.js и композиция компонентов. Остальные семь оставлены в upstream невключёнными — деплой и CLI Vercel не используются, а гайдлайны по UI и по прозе конфликтуют с impeccable и с правилами языка владельца.",
+  "owner": {
+    "name": "Gerdmant",
+    "url": "https://github.com/Gerdmant"
+  },
+  "plugins": [
+    {
+      "name": "vercel-react",
+      "description": "Правила Vercel Engineering по React и Next.js: производительность (рендер, загрузка данных, размер бандла) и композиция компонентов (компаунд-компоненты вместо разрастания булевых пропов, подъём состояния, React 19 API). Скилы подключены симлинками на upstream, поэтому git merge из vercel-labs проходит без конфликтов и без переноса файлов.",
+      "source": "./plugins/vercel-react",
+      "category": "development"
+    }
+  ]
+}

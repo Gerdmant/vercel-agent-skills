@@ -1,0 +1,10 @@
+{
+  "name": "vercel-react",
+  "version": "1.0.0",
+  "description": "Производительность React и Next.js плюс паттерны композиции компонентов — правила Vercel Engineering. Два скила: react-best-practices (рендеринг, загрузка данных, бандл) и composition-patterns (компаунд-компоненты, подъём состояния, React 19 API, отказ от булевых пропов ради настройки поведения).",
+  "author": {
+    "name": "Vercel",
+    "url": "https://github.com/vercel-labs/agent-skills"
+  },
+  "skills": "./skills/"
+}
